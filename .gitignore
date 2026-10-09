@@ -1,0 +1,27 @@
+# 编译产物
+build/
+out/
+*.class
+*.jar
+
+# 第三方依赖（见 README 的许可章节，需自行获取）
+lib/
+!gradle-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.settings/
+.classpath
+.project
+
+# 系统
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# 日志与临时文件
+*.log
+*.tmp
+*.part
