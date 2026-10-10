@@ -710,6 +710,11 @@ public final class Mp3Player {
         }
     }
 
+    /** Report a status line the same way a playback failure is reported. */
+    public static void say(String msg) {
+        tell(msg);
+    }
+
     /**
      * What to do when a track reaches its end by itself.
      *
@@ -798,15 +803,40 @@ public final class Mp3Player {
         return dir;
     }
 
-    /** Where converted tracks are placed so the library scan picks them up. */
+    /**
+     * Where downloaded and converted audio is kept.
+     *
+     * <p>{@code <gameDir>/WiFiDownloads}. Deliberately its own folder rather than the
+     * music library or the version root: a saved track would otherwise appear loose
+     * among the user's own files, and the conversion leftovers would clutter whatever
+     * directory happened to be current. It still sits on a scanned drive, so anything
+     * downloaded here becomes an ordinary, shareable library track.
+     *
+     * <p>Override with {@code -Ddshmusic.downloads=<path>}.
+     */
     public static Path libraryDir() {
-        Path dir = Path.of(System.getProperty("dshmusic.downloads", "D:\\音乐\\_网络下载"));
+        String prop = System.getProperty("dshmusic.downloads");
+        if (prop != null && !prop.isBlank()) {
+            return ensure(Path.of(prop));
+        }
+        try {
+            net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+            if (mc != null && mc.gameDirectory != null) {
+                return ensure(mc.gameDirectory.toPath().resolve("WiFiDownloads"));
+            }
+        } catch (Throwable ignored) {
+            // no client context yet; fall through to the cache
+        }
+        return ensure(downloadDir().resolve("WiFiDownloads"));
+    }
+
+    private static Path ensure(Path dir) {
         try {
             Files.createDirectories(dir);
-            return dir;
-        } catch (Exception e) {
-            return downloadDir();
+        } catch (Exception ignored) {
+            // a missing folder only matters when something is written
         }
+        return dir;
     }
 
     private static boolean isAscii(String s) {

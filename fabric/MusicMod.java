@@ -32,6 +32,7 @@ public final class MusicMod implements ClientModInitializer {
     public static final MusicLibrary LIBRARY = new MusicLibrary();
     public static final Mp3Player PLAYER = new Mp3Player();
     public static final SyncChannel SYNC = new SyncChannel();
+    public static final Playlist PLAYLIST = new Playlist();
 
     /** Music folder; override with -Ddshmusic.root=... */
     private static final Path ROOT = Path.of(
@@ -60,6 +61,7 @@ public final class MusicMod implements ClientModInitializer {
 
         // the player handles ONE-loop itself; ALL needs the library to say what is next
         Mp3Player.onTrackEnd = MusicMod::onTrackEnded;
+        PLAYLIST.load(Playlist.defaultFile());
 
         rescan();
     }
@@ -138,6 +140,82 @@ public final class MusicMod implements ClientModInitializer {
         PLAYER.stop();
         PLAYER.load(track.path, track.fingerprint, track.seconds);
         PLAYER.play();
+    }
+
+    /** Play one entry of the custom playlist, local or streamed. */
+    public static void playlistPlay(Playlist.Entry e) {
+        if (e.network) {
+            playNetwork(e.bvid(), e.name);
+            return;
+        }
+        Path p = Path.of(e.source);
+        if (!Files.isRegularFile(p)) {
+            Mp3Player.say("列表里的文件不存在：" + e.source);
+            return;
+        }
+        PLAYER.stop();
+        PLAYER.load(p, MusicLibrary.sha1(p), MusicLibrary.duration(p));
+        PLAYER.play();
+    }
+
+    /**
+     * Append whatever is playing to the custom playlist.
+     *
+     * <p>The name is the track's own title rather than a file name, so the list stays
+     * readable; it can be rewritten in the file at any time.
+     */
+    public static boolean addCurrentToPlaylist() {
+        String fp = PLAYER.fingerprint();
+        if (fp == null || fp.isBlank()) {
+            return false;
+        }
+        if (PLAYER.isNetwork()) {
+            String bvid = fp.startsWith("net:") ? fp.substring(4) : fp;
+            return PLAYLIST.add(PLAYER.displayName(), "https://www.bilibili.com/video/" + bvid);
+        }
+        Path f = PLAYER.file();
+        if (f == null) {
+            return false;
+        }
+        MusicLibrary.Track tr = LIBRARY.byFingerprint(fp);
+        String name = tr == null ? f.getFileName().toString()
+                : (tr.artist == null || tr.artist.isBlank() ? tr.title : tr.artist + " - " + tr.title);
+        return PLAYLIST.add(name, f.toAbsolutePath().toString());
+    }
+
+    /**
+     * Resolve a bilibili id and start streaming it.
+     *
+     * <p>Shared by the search list and the custom playlist so both go through exactly
+     * one resolve path, and off-thread because the cid lookup, the resolution and the
+     * download are all network work. The stream URL is bound to the requesting address
+     * and expires, so it is resolved when asked for and never handed to another client.
+     */
+    public static void playNetwork(String bvid, String label) {
+        String shown = label == null || label.isBlank() ? bvid : label;
+        Thread t = new Thread(() -> {
+            try {
+                long cid = ProviderSearch.cidOf(bvid);
+                if (cid == 0) {
+                    Mp3Player.say("取不到 cid：" + bvid);
+                    return;
+                }
+                String url = ProviderSearch.audioUrl(bvid, cid);
+                if (url == null) {
+                    Mp3Player.say("该视频没有公开音频流（可能需要会员）：" + shown);
+                    return;
+                }
+                double seconds = ProviderSearch.durationOf(bvid);
+                net.minecraft.client.Minecraft.getInstance().execute(() -> {
+                    PLAYER.loadUrl(url, "https://www.bilibili.com/", shown, "net:" + bvid, seconds);
+                    PLAYER.play();
+                });
+            } catch (Throwable e) {
+                Mp3Player.say("解析失败：" + e.getClass().getSimpleName() + "  " + shown);
+            }
+        }, "dshmusic-resolve");
+        t.setDaemon(true);
+        t.start();
     }
 
     /**

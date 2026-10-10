@@ -23,7 +23,7 @@ import net.minecraft.world.item.Items;
  */
 final class MusicHud implements HudElement {
 
-    private static final int PANEL = 0xF01A1208;
+    private static final int PANEL = 0xF0251A0E;
     private static final int BODY = 0xFFEEEEEE;
     private static final int DIM = 0xFFA3A3A3;
     private static final int ACCENT = 0xFF8AB6D6;
@@ -38,10 +38,10 @@ final class MusicHud implements HudElement {
      * an outline, a body, a highlight on the top/left edge and a shade on the bottom/
      * right edge read as a machined brass frame.
      */
-    private static final int BRASS_DARK = 0xFF3E2C0C;
-    private static final int BRASS = 0xFFB08D3F;
-    private static final int BRASS_HI = 0xFFE6C877;
-    private static final int BRASS_SHADOW = 0xFF7A5C22;
+    private static final int BRASS_DARK = 0xFF301E0E;
+    private static final int BRASS = 0xFFD7AA5E;
+    private static final int BRASS_HI = 0xFFFFEB8C;
+    private static final int BRASS_SHADOW = 0xFF724731;
     private static final int BEZEL = 2;
 
     /** Never wider than this fraction of the GUI, so it cannot dominate the view. */

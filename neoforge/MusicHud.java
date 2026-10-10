@@ -21,7 +21,7 @@ import net.neoforged.neoforge.client.gui.GuiLayer;
  */
 final class MusicHud implements GuiLayer {
 
-    private static final int PANEL = 0xF01A1208;
+    private static final int PANEL = 0xF0251A0E;
     private static final int DIVIDER = 0xFF9ABBD3;
     private static final int TITLE = 0xEEFFFFFF;
     private static final int BODY = 0xFFEEEEEE;
@@ -39,10 +39,10 @@ final class MusicHud implements GuiLayer {
      * right edge read as a machined brass frame. That bevel is what makes Create's
      * panels look like brass instead of like a colour.
      */
-    private static final int BRASS_DARK = 0xFF3E2C0C;
-    private static final int BRASS = 0xFFB08D3F;
-    private static final int BRASS_HI = 0xFFE6C877;
-    private static final int BRASS_SHADOW = 0xFF7A5C22;
+    private static final int BRASS_DARK = 0xFF301E0E;
+    private static final int BRASS = 0xFFD7AA5E;
+    private static final int BRASS_HI = 0xFFFFEB8C;
+    private static final int BRASS_SHADOW = 0xFF724731;
 
     /** Bezel thickness, in pixels. The panel body starts inside this. */
     private static final int BEZEL = 2;

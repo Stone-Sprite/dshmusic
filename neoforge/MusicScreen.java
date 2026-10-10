@@ -59,6 +59,8 @@ final class MusicScreen extends Screen {
 
     private EditBox searchBox;
     private final List<MusicLibrary.Track> shown = new ArrayList<>();
+    /** Playlist entries for the "list" mode; shown and clicked separately from tracks. */
+    private final List<Playlist.Entry> shownList = new ArrayList<>();
     private int scroll;
 
     /** Network hits, kept across screen opens like the mode and provider are. */
@@ -162,7 +164,11 @@ final class MusicScreen extends Screen {
 
         int by = bodyY;
         addRenderableWidget(Button.builder(modeLabel(), b -> {
-            mode = "local".equals(mode) ? "search" : "local";
+            mode = switch (mode) {
+                case "local" -> "search";
+                case "search" -> "list";
+                default -> "local";
+            };
             b.setMessage(modeLabel());
             refresh();
         }).bounds(rightX, by, rightW, btnH).build());
@@ -217,8 +223,27 @@ final class MusicScreen extends Screen {
                 .bounds(rightX, by, vw, btnH).build());
         addRenderableWidget(Button.builder(Component.literal("音量 +"), b -> MusicMod.PLAYER.adjustVolume(0.1f))
                 .bounds(rightX + vw + 3, by, vw, btnH).build());
+        addRenderableWidget(Button.builder(Component.literal("加入列表"), b -> {
+            if (MusicMod.addCurrentToPlaylist()) {
+                netStatus = "已加入列表：" + MusicMod.PLAYER.displayName();
+                refresh();
+            } else {
+                netStatus = "没有正在播放的曲目";
+            }
+        }).bounds(rightX + (vw + 3) * 2, by, vw, btnH).build());
+        by += rowStep;
+
+        addRenderableWidget(Button.builder(Component.literal("重载列表"), b -> {
+            MusicMod.PLAYLIST.load(Playlist.defaultFile());
+            refresh();
+            netStatus = "列表已重载（" + MusicMod.PLAYLIST.entries().size() + " 首）";
+        }).bounds(rightX, by, vw, btnH).build());
         addRenderableWidget(Button.builder(Component.literal("重新扫描"), b -> MusicMod.rescan())
+                .bounds(rightX + vw + 3, by, vw, btnH).build());
+        addRenderableWidget(Button.builder(Component.literal("列表路径"), b ->
+                netStatus = "列表文件：" + Playlist.defaultFile())
                 .bounds(rightX + (vw + 3) * 2, by, vw, btnH).build());
+        by += rowStep;
 
         int cw = Math.min(80, panelW / 3);
         addRenderableWidget(Button.builder(Component.literal("关闭"), b -> onClose())
@@ -228,12 +253,15 @@ final class MusicScreen extends Screen {
     }
 
     private static Component modeLabel() {
-        return Component.literal("local".equals(mode) ? "本地播放（点击切网络搜索）"
-                : "网络搜索（点击切本地播放）");
+        return Component.literal(modeLabelText() + "（点击切换）");
     }
 
     private static String modeLabelText() {
-        return "local".equals(mode) ? "本地播放" : "网络搜索";
+        return switch (mode) {
+            case "search" -> "网络搜索";
+            case "list" -> "自定列表";
+            default -> "本地播放";
+        };
     }
 
     private static Component shareLabel() {
@@ -258,7 +286,21 @@ final class MusicScreen extends Screen {
                 }
             }
         }
-        scroll = Mth.clamp(scroll, 0, Math.max(0, shown.size() - rows()));
+        shownList.clear();
+        List<Playlist.Entry> pl = MusicMod.PLAYLIST.entries();
+        if (filter == null || filter.isBlank()) {
+            shownList.addAll(pl);
+        } else {
+            String q = filter.toLowerCase(Locale.ROOT);
+            for (Playlist.Entry e : pl) {
+                if (e.name.toLowerCase(Locale.ROOT).contains(q)
+                        || e.source.toLowerCase(Locale.ROOT).contains(q)) {
+                    shownList.add(e);
+                }
+            }
+        }
+        int size = "list".equals(mode) ? shownList.size() : shown.size();
+        scroll = Mth.clamp(scroll, 0, Math.max(0, size - rows()));
     }
 
     private int rows() {
@@ -313,6 +355,29 @@ final class MusicScreen extends Screen {
             }
             if (shown.isEmpty()) {
                 g.drawString(font, MusicMod.isScanning() ? "正在扫描…" : "没有匹配的本地文件",
+                        listX + 3, listY + 3, text(DIM), false);
+            }
+        } else if ("list".equals(mode)) {
+            for (int i = 0; i < n; i++) {
+                int idx = scroll + i;
+                if (idx >= shownList.size()) {
+                    break;
+                }
+                Playlist.Entry e = shownList.get(idx);
+                int ry = listY + i * 11;
+                boolean hover = mouseX >= listX && mouseX < listX + listW
+                        && mouseY >= ry && mouseY < ry + 11;
+                if (hover) {
+                    g.fill(listX, ry, listX + listW, ry + 11, ROW_HOVER);
+                }
+                boolean current = e.fingerprint().equalsIgnoreCase(MusicMod.PLAYER.fingerprint());
+                String tag = e.network ? "网" : "本";
+                g.drawString(font, fit(e.name, listW - 22), listX + 3, ry + 2,
+                        text(current ? GREEN : (hover ? TITLE : BODY)), false);
+                g.drawString(font, tag, listX + listW - 12, ry + 2, text(DIM), false);
+            }
+            if (shownList.isEmpty()) {
+                g.drawString(font, "列表是空的 —— 编辑 playlist.txt 或点「加入列表」",
                         listX + 3, listY + 3, text(DIM), false);
             }
         } else {
@@ -395,6 +460,11 @@ final class MusicScreen extends Screen {
                 if (idx >= 0 && idx < shown.size()) {
                     MusicMod.play(shown.get(idx));
                     MusicMod.SYNC.announceNow();
+                    return true;
+                }
+            } else if ("list".equals(mode)) {
+                if (idx >= 0 && idx < shownList.size()) {
+                    MusicMod.playlistPlay(shownList.get(idx));
                     return true;
                 }
             } else if (idx >= 0 && idx < NET.size()) {
