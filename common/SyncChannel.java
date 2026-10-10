@@ -63,8 +63,52 @@ public final class SyncChannel {
         return command;
     }
 
+    /**
+     * Set the private-message command and remember it.
+     *
+     * <p>Which command works depends on the server's chat plugin — {@code /w},
+     * {@code /msg}, {@code /tell}, {@code /m} and others are all common — so this is a
+     * per-server setting rather than a constant, and it is written to disk so it
+     * survives a restart.
+     */
     public void setCommand(String cmd) {
-        this.command = cmd == null || cmd.isBlank() ? "/w" : cmd.trim();
+        this.command = cmd == null || cmd.isBlank() ? DEFAULT_COMMAND : cmd.trim();
+        saveCommand();
+    }
+
+    /** Commands worth offering as one-click choices; any other can still be typed. */
+    public static final String[] COMMON_COMMANDS = {"/w", "/msg", "/tell", "/m", "/pm", "/whisper"};
+
+    public static final String DEFAULT_COMMAND = "/w";
+
+    /** The remembered command lives beside the downloads, with the rest of the state. */
+    private static java.nio.file.Path commandFile() {
+        return Mp3Player.libraryDir().resolve("msg-command.txt");
+    }
+
+    /** Read the saved command, if any. Call once at startup. */
+    public void loadCommand() {
+        try {
+            java.nio.file.Path f = commandFile();
+            if (java.nio.file.Files.isRegularFile(f)) {
+                String s = java.nio.file.Files.readString(f, java.nio.charset.StandardCharsets.UTF_8).strip();
+                if (!s.isEmpty()) {
+                    command = s;
+                    System.out.println("[dshmusic] private-message command = " + command);
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("[dshmusic] could not read the command file: " + e);
+        }
+    }
+
+    private void saveCommand() {
+        try {
+            java.nio.file.Files.writeString(commandFile(), command,
+                    java.nio.charset.StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            System.err.println("[dshmusic] could not save the command: " + e);
+        }
     }
 
     public List<String> targets() {

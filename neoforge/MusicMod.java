@@ -41,6 +41,9 @@ public final class MusicMod {
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.register(MusicClient.class);
         Mp3Player.notice = SyncChannel::note;
         Mp3Player.onTrackEnd = MusicMod::onTrackEnded;
+        // the server's chat plugin decides which private-message command works, so the
+        // choice is remembered on disk rather than being a constant
+        SYNC.loadCommand();
         PLAYLIST.load(Playlist.defaultFile());
         rescan();
     }

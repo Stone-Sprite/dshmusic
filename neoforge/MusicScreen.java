@@ -551,6 +551,7 @@ final class MusicScreen extends Screen {
     static final class PlayerPickerScreen extends Screen {
 
         private final Screen parent;
+        private EditBox commandBox;
 
         PlayerPickerScreen(Screen parent) {
             super(Component.literal("选择共享的玩家"));
@@ -577,10 +578,33 @@ final class MusicScreen extends Screen {
                                     (MusicMod.SYNC.targets().contains(name) ? "✔ " : "  ") + name));
                         }).bounds(width / 2 - 90, y, 180, btnH).build());
                 y += btnH + 3;
-                if (y > height - 46) {
+                if (y > height - 86) {
                     break;
                 }
             }
+
+            // Which private-message command works depends on the server's chat plugin,
+            // so it is editable here and remembered: a free text box for anything, plus
+            // one-click buttons for the commands that cover most servers.
+            commandBox = new EditBox(font, width / 2 - 70, height - 76, 140, 14,
+                    Component.literal("私聊指令"));
+            commandBox.setValue(MusicMod.SYNC.command());
+            commandBox.setHint(Component.literal("/w 或 /msg 等"));
+            commandBox.setMaxLength(24);
+            commandBox.setResponder(v -> MusicMod.SYNC.setCommand(v));
+            addRenderableWidget(commandBox);
+
+            String[] quick = SyncChannel.COMMON_COMMANDS;
+            int qw2 = Math.min(52, (width - 40) / quick.length - 2);
+            int qx = width / 2 - (qw2 + 2) * quick.length / 2;
+            for (String cmd : quick) {
+                addRenderableWidget(Button.builder(Component.literal(cmd), b -> {
+                    MusicMod.SYNC.setCommand(cmd);
+                    commandBox.setValue(cmd);
+                }).bounds(qx, height - 58, qw2, btnH).build());
+                qx += qw2 + 2;
+            }
+
             addRenderableWidget(Button.builder(Component.literal("全选"), b -> {
                 for (String s : online) {
                     MusicMod.SYNC.addTarget(s);

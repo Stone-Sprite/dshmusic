@@ -61,6 +61,9 @@ public final class MusicMod implements ClientModInitializer {
 
         // the player handles ONE-loop itself; ALL needs the library to say what is next
         Mp3Player.onTrackEnd = MusicMod::onTrackEnded;
+        // the server's chat plugin decides which private-message command works, so the
+        // choice is remembered on disk rather than being a constant
+        SYNC.loadCommand();
         PLAYLIST.load(Playlist.defaultFile());
 
         rescan();
