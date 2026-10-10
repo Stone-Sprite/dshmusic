@@ -58,7 +58,37 @@ public final class MusicMod implements ClientModInitializer {
         // hand and cannot be copied out, a chat line can
         Mp3Player.notice = SyncChannel::note;
 
+        // the player handles ONE-loop itself; ALL needs the library to say what is next
+        Mp3Player.onTrackEnd = MusicMod::onTrackEnded;
+
         rescan();
+    }
+
+    /**
+     * A track reached its end on its own.
+     *
+     * <p>Only {@code ALL} mode advances; {@code OFF} simply stops, and {@code ONE} was
+     * already handled by the player replaying in place.
+     *
+     * <p>Sequencing covers the local library only. A provider track has a {@code net:}
+     * fingerprint that is not in the index, so there is no meaningful "next" to step to
+     * and it is left stopped rather than jumping to an unrelated local file.
+     */
+    private static void onTrackEnded() {
+        if (PLAYER.loopMode() != Mp3Player.LoopMode.ALL) {
+            return;
+        }
+        List<MusicLibrary.Track> all = LIBRARY.tracks();
+        if (all.isEmpty()) {
+            return;
+        }
+        String current = PLAYER.fingerprint();
+        for (int i = 0; i < all.size(); i++) {
+            if (all.get(i).fingerprint.equalsIgnoreCase(current)) {
+                play(all.get((i + 1) % all.size()));
+                return;
+            }
+        }
     }
 
     public static Path musicRoot() {

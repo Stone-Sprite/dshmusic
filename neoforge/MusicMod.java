@@ -39,6 +39,7 @@ public final class MusicMod {
         // game-bus hooks: right-click to open, chat to sync, tick to keep in step
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.register(MusicClient.class);
         Mp3Player.notice = SyncChannel::note;
+        Mp3Player.onTrackEnd = MusicMod::onTrackEnded;
         rescan();
     }
 
@@ -126,5 +127,32 @@ public final class MusicMod {
     /** Called from the client tick; advances sync housekeeping. */
     public static void tick() {
         SYNC.tick();
+    }
+
+    /**
+     * A track reached its end on its own.
+     *
+     * <p>Only {@code ALL} mode advances; {@code OFF} simply stops, and {@code ONE} was
+     * already handled by the player replaying in place.
+     *
+     * <p>Sequencing covers the local library only. A provider track has a {@code net:}
+     * fingerprint that is not in the index, so there is no meaningful "next" to step to
+     * and it is left stopped rather than jumping to an unrelated local file.
+     */
+    private static void onTrackEnded() {
+        if (PLAYER.loopMode() != Mp3Player.LoopMode.ALL) {
+            return;
+        }
+        List<MusicLibrary.Track> all = LIBRARY.tracks();
+        if (all.isEmpty()) {
+            return;
+        }
+        String current = PLAYER.fingerprint();
+        for (int i = 0; i < all.size(); i++) {
+            if (all.get(i).fingerprint.equalsIgnoreCase(current)) {
+                play(all.get((i + 1) % all.size()));
+                return;
+            }
+        }
     }
 }

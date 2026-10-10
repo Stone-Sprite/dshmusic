@@ -318,12 +318,33 @@ public final class Mp3Player {
         while (running) {
             boolean restart = decodeOnce();
             if (!restart) {
-                break;
+                if (!running) {
+                    break;                       // stop() was called mid-track
+                }
+                // The stream ran out on its own. running is still true, which is the
+                // only thing that distinguishes this from a stop.
+                if (loopMode == LoopMode.ONE) {
+                    framesPlayed = 0;
+                    pendingSeek = 0;
+                    restart = true;              // decodeOnce reopens from the top
+                } else {
+                    break;
+                }
             }
         }
+        boolean endedNaturally = running;
         running = false;
         paused = false;
         line = null;
+        if (endedNaturally && loopMode != LoopMode.ONE) {
+            Runnable r = onTrackEnd;
+            if (r != null) {
+                // off the decode thread: the handler may start another player thread
+                Thread t = new Thread(r, "dshmusic-advance");
+                t.setDaemon(true);
+                t.start();
+            }
+        }
     }
 
     private Path prepareNetworkFile() {
@@ -688,6 +709,60 @@ public final class Mp3Player {
             }
         }
     }
+
+    /**
+     * What to do when a track reaches its end by itself.
+     *
+     * <p>{@code ONE} is handled here, by replaying: the file is already in hand and the
+     * decode thread is still alive, so a restart costs nothing and needs no help from
+     * the UI. {@code ALL} needs to know what comes next, which only the library knows,
+     * so that case is handed back through {@link #onTrackEnd}.
+     */
+    public enum LoopMode {
+        OFF("关闭"),
+        ALL("列表"),
+        ONE("单曲");
+
+        public final String label;
+
+        LoopMode(String label) {
+            this.label = label;
+        }
+    }
+
+    private volatile LoopMode loopMode = LoopMode.OFF;
+
+    public LoopMode loopMode() {
+        return loopMode;
+    }
+
+    public void setLoopMode(LoopMode m) {
+        this.loopMode = m == null ? LoopMode.OFF : m;
+    }
+
+    /** OFF -> ALL -> ONE -> OFF. */
+    public LoopMode cycleLoopMode() {
+        switch (loopMode) {
+            case OFF:
+                loopMode = LoopMode.ALL;
+                break;
+            case ALL:
+                loopMode = LoopMode.ONE;
+                break;
+            default:
+                loopMode = LoopMode.OFF;
+                break;
+        }
+        return loopMode;
+    }
+
+    /**
+     * Run when a track ends on its own and the mode says to move on.
+     *
+     * <p>Set by the loader entrypoint. Not called for a user-requested stop, and not
+     * called in {@code ONE} mode.
+     */
+    public static volatile Runnable onTrackEnd;
 
     /**
      * Working directory for downloads and conversion.

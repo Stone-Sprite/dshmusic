@@ -21,8 +21,7 @@ import net.neoforged.neoforge.client.gui.GuiLayer;
  */
 final class MusicHud implements GuiLayer {
 
-    private static final int PANEL = 0xF0100010;
-    private static final int EDGE = 0xDD8AB6D6;
+    private static final int PANEL = 0xF01A1208;
     private static final int DIVIDER = 0xFF9ABBD3;
     private static final int TITLE = 0xEEFFFFFF;
     private static final int BODY = 0xFFEEEEEE;
@@ -31,6 +30,22 @@ final class MusicHud implements GuiLayer {
     private static final int GREEN = 0xCC20CC20;
     private static final int BAR_BG = 0xFF2A1030;
     private static final int BAR_FG = 0xFF5FF0FF;
+
+    /**
+     * The bezel, in Create's brass.
+     *
+     * <p>Four tones rather than one: a flat gold rectangle reads as a yellow box, while
+     * an outline, a body, a highlight on the top/left edge and a shade on the bottom/
+     * right edge read as a machined brass frame. That bevel is what makes Create's
+     * panels look like brass instead of like a colour.
+     */
+    private static final int BRASS_DARK = 0xFF3E2C0C;
+    private static final int BRASS = 0xFFB08D3F;
+    private static final int BRASS_HI = 0xFFE6C877;
+    private static final int BRASS_SHADOW = 0xFF7A5C22;
+
+    /** Bezel thickness, in pixels. The panel body starts inside this. */
+    private static final int BEZEL = 2;
 
     /** Never wider than this fraction of the GUI, so it cannot dominate the view. */
     private static final double MAX_WIDTH_FRACTION = 0.34;
@@ -71,11 +86,24 @@ final class MusicHud implements GuiLayer {
         int x = guiW / 2 - w / 2;
         int y = guiH - BOTTOM_GAP - HEIGHT;
 
+        // Brass bezel, drawn outside the panel rect: outline, body, then the bevel
+        // highlights. Order matters — the highlight has to land on top of the body.
+        int b = BEZEL;
+        g.fill(x - b - 1, y - b - 1, x + w + b + 1, y + HEIGHT + b + 1, BRASS_DARK);
+        g.fill(x - b, y - b, x + w + b, y + HEIGHT + b, BRASS);
         g.fill(x, y, x + w, y + HEIGHT, PANEL);
-        g.fill(x - 1, y - 1, x + w + 1, y, EDGE);
-        g.fill(x - 1, y + HEIGHT, x + w + 1, y + HEIGHT + 1, EDGE);
-        g.fill(x - 1, y, x, y + HEIGHT, EDGE);
-        g.fill(x + w, y, x + w + 1, y + HEIGHT, EDGE);
+        // lit from the top-left
+        g.fill(x - b, y - b, x + w + b, y - b + 1, BRASS_HI);
+        g.fill(x - b, y - b, x - b + 1, y + HEIGHT + b, BRASS_HI);
+        // shaded on the bottom-right
+        g.fill(x - b, y + HEIGHT + b - 1, x + w + b, y + HEIGHT + b, BRASS_SHADOW);
+        g.fill(x + w + b - 1, y - b, x + w + b, y + HEIGHT + b, BRASS_SHADOW);
+        // corner rivets, the detail that makes it read as Create's brasswork
+        for (int cx : new int[]{x - b, x + w + b - 2}) {
+            for (int cy : new int[]{y - b, y + HEIGHT + b - 2}) {
+                g.fill(cx, cy, cx + 2, cy + 2, BRASS_HI);
+            }
+        }
 
         int pad = 4;
         int inner = w - pad * 2;

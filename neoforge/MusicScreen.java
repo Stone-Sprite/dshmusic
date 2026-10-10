@@ -194,7 +194,7 @@ final class MusicScreen extends Screen {
                 .bounds(rightX, by, rightW, btnH).build());
         by += rowStep + 3;
 
-        int qw = Math.max(22, (rightW - 9) / 4);
+        int qw = Math.max(20, (rightW - 12) / 5);
         addRenderableWidget(Button.builder(Component.literal("⏮"), b -> MusicMod.skip(-1))
                 .bounds(rightX, by, qw, btnH).build());
         addRenderableWidget(Button.builder(
@@ -206,6 +206,10 @@ final class MusicScreen extends Screen {
                 .bounds(rightX + (qw + 3) * 2, by, qw, btnH).build());
         addRenderableWidget(Button.builder(Component.literal("⏭"), b -> MusicMod.skip(1))
                 .bounds(rightX + (qw + 3) * 3, by, qw, btnH).build());
+        addRenderableWidget(Button.builder(loopLabel(), b -> {
+            MusicMod.PLAYER.cycleLoopMode();
+            b.setMessage(loopLabel());
+        }).bounds(rightX + (qw + 3) * 4, by, qw, btnH).build());
         by += rowStep;
 
         int vw = Math.max(28, (rightW - 6) / 3);
@@ -234,6 +238,11 @@ final class MusicScreen extends Screen {
 
     private static Component shareLabel() {
         return Component.literal("共享音乐： " + (MusicMod.SYNC.enabled() ? "开" : "关"));
+    }
+
+    /** Transport button text: the loop mode is the button's whole label. */
+    private static Component loopLabel() {
+        return Component.literal(MusicMod.PLAYER.loopMode().label);
     }
 
     private void refresh() {
@@ -346,8 +355,9 @@ final class MusicScreen extends Screen {
         int ny = listY + listH + 3;
         if (ny + 22 < footerY) {
             g.drawString(font, fit(now, panelW - 24), listX, ny, text(BODY), false);
-            String pos = String.format("%.0f/%.0f 秒  音量 %d%%   %s",
+            String pos = String.format("%.0f/%.0f 秒  音量 %d%%  循环 %s   %s",
                     player.position(), player.duration(), Math.round(player.volume() * 100),
+                    player.loopMode().label,
                     MusicMod.SYNC.enabled()
                             ? ("共享→" + String.join(",", MusicMod.SYNC.targets()))
                             : "未共享");
