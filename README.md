@@ -151,6 +151,12 @@ dshmusic/
 
 ---
 
+## 相关项目
+
+- [diamondhud](https://github.com/Stone-Sprite/diamondhud) —— 同作者，血量条中间画箭头指向最近的钻石矿，附 Create 风格指南针面板。同样支持 NeoForge 1.21.11 和 Fabric。
+
+---
+
 ## 许可
 
 MIT，见 [LICENSE](LICENSE)。
