@@ -2,7 +2,13 @@
 
 > 在 Minecraft 里手持一根木棍就能听歌 —— 听硬盘上的、搜 B 站上的、和朋友同步听同一首。
 
-支持 **1.21.11 (NeoForge)** 和 **26.3 (Fabric)**，两个版本的共享代码逐字节一致。
+支持三个组合，共享代码逐字节一致：
+
+| Minecraft | 加载器 | 产物 |
+|---|---|---|
+| **1.21.11** | **Fabric** | `dshmusic-0.5.2-Fabric-1.21.11.jar` |
+| 1.21.11 | NeoForge | `dshmusic-0.5.2-NeoForge-1.21.11.jar` |
+| 26.3 | Fabric | `dshmusic-0.5.2-Fabric-26.3.jar` |
 
 ![介绍](docs/介绍卡.png)
 
@@ -16,8 +22,11 @@
 | **右键木棍** | 弹出设置界面：左边歌单、右边控制 |
 | **听本地歌** | 自动全盘扫描硬盘，mp3 / wav / flac 全收进来 |
 | **搜 B站** | 输入关键词点「搜索」，直接在线播放 |
+| **自定播放列表** | `playlist.txt`，可手写，也可界面上「加入列表」 |
+| **循环模式** | 关 / 列表循环 / 单曲循环 |
 | **和朋友同步** | 加密传输曲目信息，双方各自拉流，**不传音频文件** |
 | **玩家列表** | 选择要同步给哪些玩家 |
+| **私聊指令可改** | 各家服务器不一样，界面上改完会记住 |
 
 ---
 
@@ -25,10 +34,32 @@
 
 | 你玩的版本 | 需要 | 把哪个 jar 放进 mods |
 |---|---|---|
-| 1.21.11 | NeoForge 21.11.42+ | `dshmusic-0.4.4-NeoForge-1.21.11.jar` |
-| 26.3 | Fabric Loader 0.19.5+ 和 Fabric API | `dshmusic-0.4.4-Fabric-26.3.jar` |
+| **1.21.11 + Fabric** | Fabric Loader **0.19.3+** 和 Fabric API | `dshmusic-0.5.2-Fabric-1.21.11.jar` |
+| 1.21.11 + NeoForge | NeoForge 21.11.42+ | `dshmusic-0.5.2-NeoForge-1.21.11.jar` |
+| 26.3 + Fabric | Fabric Loader 0.19.5+ 和 Fabric API | `dshmusic-0.5.2-Fabric-26.3.jar` |
 
 > ⚠️ 一个版本目录里**只能放一个** dshmusic 的 jar，放两个会加载失败。
+>
+> ⚠️ Fabric API 的版本号要和游戏版本对上（1.21.11 就选带 `+1.21.11` 的那个构建）。
+
+音频解码需要的 **JLayer / mp3spi / tritonus**（LGPL）已经打进 jar 里了，**不用另外装**。
+
+### ⚠️ 和「投影 / Litematica」抢木棍
+
+投影（以及它依赖的 MaLiLib）有一个**「工具物品」**设定，默认就是 `minecraft:stick`。
+它会在你拿木棍右键时抢走这个操作，于是本模组的界面打不开 —— 两个模组都想要
+「拿木棍右键」这一个手势。
+
+**不用删投影**，改一下工具物品就行：
+
+```
+游戏内按 M 打开 投影 菜单
+  → 通用 / Generic
+  → 工具物品 / Tool Item
+  → minecraft:stick 改成别的，例如 minecraft:blaze_rod（烈焰棒）
+```
+
+改完木棍归本模组，投影改用烈焰棒，两边互不干扰。
 
 **ffmpeg** 只有「听 B 站」需要，本地播放不需要。模组会自己按这个顺序找：
 
@@ -59,6 +90,16 @@ PATH 环境变量
 ```
 
 详细图文教程见 [`docs/dshmusic-新手教程.docx`](docs/dshmusic-新手教程.docx)。
+
+### 启动参数
+
+```properties
+# 音乐目录，默认 D:\音乐（同时还会扫所有固定磁盘根目录，下载的歌不用挪位置）
+-Ddshmusic.root=E:\我的音乐
+
+# ffmpeg 位置，不填就自动找/自动下
+-Ddshmusic.ffmpeg=D:\ffmpeg\bin\ffmpeg.exe
+```
 
 ---
 
@@ -110,8 +151,14 @@ PATH 环境变量
 
 ## 从源码编译
 
-这个项目**不用 Gradle，也不用 Loom**。26.3 是去混淆的，所以直接对着原版 jar 用 `javac` 编译即可。
+这个项目**不用 Gradle，也不用 Loom**：
 
+- **26.3 是去混淆的** —— 直接对着原版 jar 用 `javac` 编译即可。
+- **1.21.11 是混淆的** —— Fabric 运行期加载的是 intermediary 名（`class_2960`），
+  而源码写的是 Mojang 名（`Identifier`）。所以编译完还要用 Fabric Loader 自带的
+  tiny-remapper 走 `mojang → official → intermediary` **两遍重映射**。
+
+Loom 平时干的就是后面这件事。完整做法、踩过的 7 个坑、以及「怎么确认映射真的生效」
 见 [`BUILDING.md`](BUILDING.md)。
 
 ---
@@ -120,18 +167,34 @@ PATH 环境变量
 
 ```
 dshmusic/
-├── common/          两个版本共享的源码（逐字节一致）
+├── common/              三个平台逐字节共享的源码（8 个文件）
 │   ├── Id3Reader.java        读 ID3 标签
 │   ├── MusicLibrary.java     全盘扫描 + 时长过滤
 │   ├── Mp3Player.java        播放 + 网络下载 + ffmpeg 转换
 │   ├── ProviderSearch.java   B站 搜索 / 取流
+│   ├── Playlist.java         自定播放列表
 │   ├── SyncChannel.java      同步载荷的组装与解析
 │   ├── SyncCrypto.java       AES-256-GCM 封装
 │   └── FfmpegInstaller.java  ffmpeg 下载与安装
-├── neoforge/        1.21.11 的加载器接口（3 个文件）
-├── fabric/          26.3 的加载器接口（3 个文件）
-└── docs/            介绍卡 + 图文教程
+├── fabric-1.21.11/      Fabric + 1.21.11 的 4 个文件 + fabric.mod.json
+├── neoforge-1.21.11/    NeoForge + 1.21.11 的 4 个文件 + neoforge.mods.toml
+├── fabric-26.3/         Fabric + 26.3 的 4 个文件 + fabric.mod.json
+├── resources/           mod 图标
+├── tools/               不用 Gradle 的构建链（见 BUILDING.md）
+└── docs/                介绍卡 + 图文教程
 ```
+
+同一个文件在不同平台下的差别只有入口和 HUD 注册方式：
+
+| | NeoForge 1.21.11 | Fabric 1.21.11 | Fabric 26.3 |
+|---|---|---|---|
+| 入口 | `@Mod(dist = Dist.CLIENT)` | `ClientModInitializer` | `ClientModInitializer` |
+| HUD 注册 | `RegisterGuiLayersEvent.registerAbove(...)` | `HudElementRegistry.addLast(...)` | `HudElementRegistry.addLast(...)` |
+| 图层接口 | `GuiLayer.render(GuiGraphics, DeltaTracker)` | `HudElement.render(GuiGraphics, DeltaTracker)` | `HudElement.extractRenderState(GuiGraphicsExtractor, ...)` |
+| 开界面 | 事件里 `event.setCanceled(true)` | 客户端 tick 轮询使用键 | 同左 |
+| 发消息 | `displayClientMessage(..., false)` | `displayClientMessage(..., false)` | `sendSystemMessage(...)` |
+
+`MusicScreen.java` 只依赖原版 `Screen` API，所以 **1.21.11 的两个平台共用同一份**（逐字节一致）。
 
 ---
 
@@ -140,12 +203,14 @@ dshmusic/
 - **网易云 / QQ音乐** —— 只有按钮，未实现。这两家的曲库大部分需要会员，取流等于绕过访问控制，不做。
 - **音频格式** —— 只支持 mp3 / wav / flac。`.m4a` 和 `.ogg` 解不了（Java Sound 的限制），网络音频是先转成 WAV 再播的。
 - **本地文件同步** —— 需要双方都有那个文件，否则靠 B站 搜替代版本（按时长匹配，实测 4 个样本里 3 个差 0~1 秒）。
+- **木棍和投影冲突** —— 见上面「和投影抢木棍」，改投影的工具物品即可。
 
 ---
 
 ## 已验证 / 未验证
 
-**已实测通过**：本地播放、B站 搜索、网络播放（0% 静音）、全盘扫描、HUD 渲染、玩家列表、双客户端端到端同步。
+**已实测通过**：本地播放、B站 搜索、网络播放（0% 静音）、全盘扫描、HUD 渲染、玩家列表、
+双客户端端到端同步；三个平台的构建都能进游戏加载运行（1.21.11 Fabric 版实测 HUD 与播放器界面正常）。
 
 **未做**：网易云 / QQ音乐。
 
@@ -153,7 +218,7 @@ dshmusic/
 
 ## 相关项目
 
-- [diamondhud](https://github.com/Stone-Sprite/diamondhud) —— 同作者，血量条中间画箭头指向最近的钻石矿，附 Create 风格指南针面板。同样支持 NeoForge 1.21.11 和 Fabric。
+- [diamondhud](https://github.com/Stone-Sprite/diamondhud) —— 同作者，血量条中间画箭头指向最近的钻石矿，附 Create 风格指南针面板。同样支持 NeoForge 1.21.11 和 Fabric 1.21.11。
 
 ---
 
@@ -161,8 +226,8 @@ dshmusic/
 
 MIT，见 [LICENSE](LICENSE)。
 
-依赖的第三方库（编译时需要，未随仓库分发）：
+依赖的第三方库（LGPL，**已打进发布出来的 jar**，安装时不用另装）：
 
-- [JLayer](https://sourceforge.net/projects/javalayer/) (LGPL)
-- [MP3SPI](https://sourceforge.net/projects/mp3spi/) (LGPL)
-- [Tritonus](https://sourceforge.net/projects/tritonus/) (LGPL)
+- [JLayer](https://sourceforge.net/projects/javalayer/)
+- [MP3SPI](https://sourceforge.net/projects/mp3spi/)
+- [Tritonus](https://sourceforge.net/projects/tritonus/)

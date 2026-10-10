@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "dshmusic",
+  "version": "0.5.2",
+  "name": "DSH Music",
+  "description": "Hold a stick to see what is playing; right-click it to pick a track and control playback. Plays local files through the mod's own audio line, and can keep other clients that have the mod in step by sharing only the file fingerprint, never audio.",
+  "authors": [
+    "DSH"
+  ],
+  "license": "MIT",
+  "icon": "assets/dshmusic/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "dev.dsh.music.MusicMod"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.19.3",
+    "fabric-api": "*",
+    "minecraft": "~1.21.11",
+    "java": ">=21"
+  }
+}
